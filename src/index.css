@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ChefZone Design System — Warm, appetizing palette */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Core palette — warm oranges, reds, greens */
+    --background: 30 30% 97%;
+    --foreground: 20 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 20% 12%;
+
+    /* Warm orange primary */
+    --primary: 24 90% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 24 90% 46%;
+    --primary-light: 24 100% 95%;
+
+    /* Earthy red secondary */
+    --secondary: 8 75% 94%;
+    --secondary-foreground: 8 70% 35%;
+
+    /* Herb green accent */
+    --accent: 142 50% 40%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 142 60% 94%;
+
+    /* Like / heart red */
+    --heart: 0 80% 58%;
+    --heart-light: 0 100% 95%;
+
+    --muted: 30 20% 94%;
+    --muted-foreground: 20 12% 50%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 25 20% 88%;
+    --input: 25 20% 88%;
+    --ring: 24 90% 52%;
+
+    --radius: 0.75rem;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px 0 hsl(24 30% 20% / 0.08);
+    --shadow-md: 0 4px 16px -2px hsl(24 30% 20% / 0.12);
+    --shadow-lg: 0 12px 40px -4px hsl(24 30% 20% / 0.18);
+    --shadow-card: 0 2px 12px hsl(24 30% 20% / 0.08);
+    --shadow-card-hover: 0 8px 32px hsl(24 30% 20% / 0.16);
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(24 90% 52%) 0%, hsl(8 80% 55%) 50%, hsl(24 95% 48%) 100%);
+    --gradient-card-overlay: linear-gradient(to top, hsl(20 40% 8% / 0.85) 0%, transparent 60%);
+    --gradient-primary: linear-gradient(135deg, hsl(24 90% 52%), hsl(8 80% 55%));
+    --gradient-bg: linear-gradient(160deg, hsl(30 30% 97%) 0%, hsl(24 40% 95%) 100%);
+
+    /* Typography */
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 20 20% 12%;
+    --sidebar-primary: 24 90% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 20% 94%;
+    --sidebar-accent-foreground: 20 20% 12%;
+    --sidebar-border: 25 20% 88%;
+    --sidebar-ring: 24 90% 52%;
+  }
+
+  .dark {
+    --background: 20 20% 8%;
+    --foreground: 30 15% 95%;
+    --card: 20 18% 11%;
+    --card-foreground: 30 15% 95%;
+    --popover: 20 18% 11%;
+    --popover-foreground: 30 15% 95%;
+    --primary: 24 90% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 20 18% 18%;
+    --secondary-foreground: 30 15% 90%;
+    --muted: 20 15% 16%;
+    --muted-foreground: 25 10% 55%;
+    --accent: 142 50% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 15% 20%;
+    --input: 20 15% 20%;
+    --ring: 24 90% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    background: hsl(var(--gradient-bg));
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-body {
+    font-family: var(--font-body);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-card-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .text-gradient-primary {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
+}
+
+/* Smooth image loading */
+img {
+  transition: opacity 0.3s ease;
+}
+
+/* Focus ring override */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
