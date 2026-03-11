@@ -1,327 +1,238 @@
 // ============================================================
-// ChefZone — Profile Page
-// User profile: info, avatar update, my recipes, favorites
+// ChefZone — Profile Page (SINCRONIZADO)
 // ============================================================
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import UserAvatar from "@/components/UserAvatar";
 import RecipeCard from "@/components/RecipeCard";
 import RecipeCardSkeleton from "@/components/RecipeCardSkeleton";
-import ImagePreview from "@/components/ImagePreview";
 import EmptyState from "@/components/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserRecipes, getFavoriteRecipes } from "@/services/recipes";
-import { updateMyProfile } from "@/services/users";
+import { obtenerRecetasDeUsuario } from "@/services/recipes";
+import { uploadProfilePhoto, deleteProfilePhoto } from "@/services/users";
 import { toast } from "sonner";
-import { Edit2, Save, X, Plus, BookOpen, Heart, Loader2 } from "lucide-react";
-import type { RecipeCardData } from "@/types";
+import { Edit2, X, Plus, BookOpen, Heart, Loader2, Upload } from "lucide-react";
+import type { RecetaResumen } from "@/types";
 import { cn } from "@/lib/utils";
 
-type Tab = "recipes" | "favorites";
+type Tab = "recetas" | "favoritos";
+
+const getFullImageUrl = (path?: string) => {
+  if (!path) return undefined;
+  if (path.startsWith('http')) return path;
+  return `https://chefzonebackend.onrender.com${path.startsWith('/') ? '' : '/'}${path}`;
+};
 
 const Profile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { usuario, actualizarUsuario } = useAuth();
   const navigate = useNavigate();
 
-  const [tab, setTab] = useState<Tab>("recipes");
-  const [myRecipes, setMyRecipes] = useState<RecipeCardData[]>([]);
-  const [favorites, setFavorites] = useState<RecipeCardData[]>([]);
+  const [tab, setTab] = useState<Tab>("recetas");
+  const [myRecipes, setMyRecipes] = useState<RecetaResumen[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(true);
-  const [loadingFavs, setLoadingFavs] = useState(false);
+  
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
-  // Edit profile state
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState({
-    firstName: user?.firstName ?? "",
-    lastName: user?.lastName ?? "",
-    username: user?.username ?? "",
-    profilePicture: user?.profilePicture ?? "",
-    bio: user?.bio ?? "",
-  });
-
-  // Load my recipes on mount
+  // 1. CARGA INICIAL DE RECETAS
   useEffect(() => {
-    if (!user) return;
+    if (!usuario) return;
     const fetchMyRecipes = async () => {
       setLoadingRecipes(true);
       try {
-        const data = await getUserRecipes(user.id);
-        setMyRecipes(data);
-      } catch {
+        const data = await obtenerRecetasDeUsuario(usuario.id);
+        setMyRecipes(data || []);
+      } catch (error) {
         toast.error("No se pudieron cargar tus recetas");
       } finally {
         setLoadingRecipes(false);
       }
     };
     fetchMyRecipes();
-  }, [user]);
+  }, [usuario?.id]); // Usamos id para evitar loops si el objeto usuario cambia
 
-  // Load favorites when tab is switched to favorites
-  useEffect(() => {
-    if (tab !== "favorites") return;
-    const fetchFavs = async () => {
-      setLoadingFavs(true);
-      try {
-        const data = await getFavoriteRecipes();
-        setFavorites(data);
-      } catch {
-        toast.error("No se pudieron cargar los favoritos");
-      } finally {
-        setLoadingFavs(false);
-      }
-    };
-    if (favorites.length === 0) fetchFavs();
-  }, [tab]);
-
-  const handleStartEdit = () => {
-    setEditForm({
-      firstName: user?.firstName ?? "",
-      lastName: user?.lastName ?? "",
-      username: user?.username ?? "",
-      profilePicture: user?.profilePicture ?? "",
-      bio: user?.bio ?? "",
-    });
-    setEditing(true);
+  // 2. FUNCIÓN PARA ACTUALIZAR EL ESTADO LOCAL CUANDO DAS LIKE
+  // Esto asegura que si das like en una tarjeta, el contador del perfil reaccione
+  const handleLikeUpdate = (id: number, cantidadLikes: number, liked: boolean) => {
+    setMyRecipes(prev => prev.map(r => 
+      r.id === id ? { ...r, cantidadLikes, likedByCurrentUser: liked } : r
+    ));
   };
 
-  const handleSaveProfile = async () => {
-    setSaving(true);
+  // 3. CÁLCULO DINÁMICO DE LIKES TOTALES
+  // Sumamos los likes de todas las recetas cargadas actualmente
+  const totalLikes = useMemo(() => {
+    return myRecipes.reduce((acc, curr) => acc + (curr.cantidadLikes || 0), 0);
+  }, [myRecipes]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !usuario) return;
+
+    setSubiendoFoto(true);
     try {
-      const updated = await updateMyProfile(editForm);
-      updateUser(updated);
-      setEditing(false);
-      toast.success("Perfil actualizado correctamente");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error al actualizar perfil";
-      toast.error(msg);
+      // 1. Subimos la foto al servidor
+      const res = await uploadProfilePhoto(usuario.id, file);
+
+      // 2. Extraemos la ruta (ajustado a lo que devuelve tu backend)
+      // Agregamos un timestamp (?t=...) para forzar al navegador a descargar la imagen nueva
+      // y evitar que nos muestre la versión vieja guardada en el caché.
+      const nuevaRuta = res.profilePicture || res.foto?.ruta ;
+      const urlConTimestamp = `${nuevaRuta}?t=${new Date().getTime()}`;
+
+      // 3. Actualizamos el contexto global de autenticación
+      actualizarUsuario({
+        ...usuario,
+        profilePicture: urlConTimestamp,
+        foto: { ...usuario.foto, ruta: urlConTimestamp } // Sincronizamos ambas posibles propiedades
+      });
+
+      toast.success("¡Foto actualizada con éxito!");
+    } catch (error) {
+      console.error("Error subiendo foto:", error);
+      toast.error("No se pudo actualizar la foto");
     } finally {
-      setSaving(false);
+      setSubiendoFoto(false);
+      // Limpiamos el input para que permita subir la misma foto si se desea
+      e.target.value = "";
     }
   };
 
-  const inputCls = "w-full rounded-xl border border-input bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/50 transition-all";
+  const handleDeletePhoto = async () => {
+    if (!usuario) return;
+    if (!confirm("¿Eliminar foto de perfil?")) return;
+    try {
+      await deleteProfilePhoto(usuario.id);
+      actualizarUsuario({ ...usuario, foto: undefined, profilePicture: undefined });
+      toast.success("Foto eliminada");
+    } catch (error) {
+      toast.error("Error al eliminar foto");
+    }
+  };
 
-  if (!user) return null;
+  if (!usuario) return null;
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
       <div className="container py-8 max-w-5xl">
-        {/* Profile card */}
-        <div className="bg-card rounded-2xl shadow-card overflow-hidden mb-8">
-          {/* Banner */}
+        <div className="bg-card rounded-2xl shadow-card overflow-hidden mb-8 border border-border">
           <div className="h-32 gradient-hero" />
 
           <div className="px-6 pb-6">
-            {/* Avatar */}
             <div className="flex items-end justify-between -mt-12 mb-4">
-              <div className="relative">
+              <div className="relative group">
                 <UserAvatar
-                  src={editing ? editForm.profilePicture : user.profilePicture}
-                  name={`${user.firstName} ${user.lastName}`}
+                  src={getFullImageUrl(usuario?.profilePicture || usuario?.foto?.ruta)}
+                  name={`${usuario?.nombre} ${usuario?.apellido}`}
                   size="xl"
                   className="ring-4 ring-card"
                 />
-              </div>
-              <div className="flex gap-2 mt-4">
-                {editing ? (
-                  <>
-                    <button
-                      onClick={() => setEditing(false)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm hover:bg-muted transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={saving}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
-                    >
-                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      {saving ? "Guardando..." : "Guardar"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={handleStartEdit}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    Editar perfil
-                  </button>
+
+                {editMode && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10">
+                    <label className="p-1.5 bg-white rounded-full cursor-pointer hover:bg-gray-100">
+                      <Upload className="w-4 h-4 text-gray-700" />
+                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" disabled={subiendoFoto} />
+                    </label>
+                    {(usuario.foto?.ruta || usuario.profilePicture) && (
+                      <button onClick={handleDeletePhoto} className="p-1.5 bg-white rounded-full hover:bg-gray-100">
+                        <X className="w-4 h-4 text-red-500" />
+                      </button>
+                    )}
+                  </div>
                 )}
+
+                {subiendoFoto && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center z-20">
+                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  {editMode ? <><X className="w-4 h-4" /> Terminar</> : <><Edit2 className="w-4 h-4" /> Editar perfil</>}
+                </button>
               </div>
             </div>
 
-            {editing ? (
-              /* Edit form */
-              <div className="grid md:grid-cols-2 gap-5">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre</label>
-                      <input
-                        value={editForm.firstName}
-                        onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))}
-                        className={inputCls}
-                        placeholder="Nombre"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">Apellidos</label>
-                      <input
-                        value={editForm.lastName}
-                        onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))}
-                        className={inputCls}
-                        placeholder="Apellidos"
-                      />
-                    </div>
+            <div>
+              <h1 className="font-display text-2xl font-bold text-foreground">
+                {usuario.nombre} {usuario.apellido}
+              </h1>
+              <p className="text-muted-foreground text-sm mb-1">@{usuario.usuario}</p>
+              
+              <div className="flex gap-6 mt-5">
+                {/* Contador de Recetas */}
+                <div className="flex flex-col items-center bg-muted/50 px-5 py-2.5 rounded-2xl border border-border/50">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    <p className="font-display text-xl font-bold text-foreground leading-none">
+                      {myRecipes.length}
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre de usuario</label>
-                    <input
-                      value={editForm.username}
-                      onChange={e => setEditForm(f => ({ ...f, username: e.target.value }))}
-                      className={inputCls}
-                      placeholder="@usuario"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Bio</label>
-                    <textarea
-                      value={editForm.bio}
-                      onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))}
-                      rows={3}
-                      className={`${inputCls} resize-none`}
-                      placeholder="Cuéntanos sobre ti..."
-                    />
-                  </div>
+                  <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-bold">Recetas</p>
                 </div>
-                <div>
-                  <ImagePreview
-                    value={editForm.profilePicture}
-                    onChange={url => setEditForm(f => ({ ...f, profilePicture: url }))}
-                    label="Foto de perfil (URL)"
-                    placeholder="https://ejemplo.com/mi-foto.jpg"
-                    aspectRatio="square"
-                  />
+
+                {/* Contador de Likes TOTALES (Calculado dinámicamente) */}
+                <div className="flex flex-col items-center bg-muted/50 px-5 py-2.5 rounded-2xl border border-border/50">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                    <p className="font-display text-xl font-bold text-foreground leading-none">
+                      {totalLikes}
+                    </p>
+                  </div>
+                  <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-bold">Likes Totales</p>
                 </div>
               </div>
-            ) : (
-              /* Display */
-              <div>
-                <h1 className="font-display text-2xl font-bold text-foreground">
-                  {user.firstName} {user.lastName}
-                </h1>
-                <p className="text-muted-foreground text-sm mb-1">@{user.username}</p>
-                <p className="text-muted-foreground text-xs mb-3">{user.email}</p>
-                {user.bio && (
-                  <p className="text-foreground text-sm leading-relaxed max-w-xl">{user.bio}</p>
-                )}
-                <div className="flex gap-4 mt-4 text-sm">
-                  <div className="text-center">
-                    <p className="font-bold text-foreground">{myRecipes.length}</p>
-                    <p className="text-muted-foreground text-xs">Recetas</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-bold text-foreground">{favorites.length}</p>
-                    <p className="text-muted-foreground text-xs">Favoritas</p>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* New recipe CTA */}
+        {/* Sección de pestañas y grid */}
         <div className="flex justify-end mb-4">
-          <button
-            onClick={() => navigate("/recipes/create")}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nueva Receta
+          <button onClick={() => navigate("/recetas/crear")} className="flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
+            <Plus className="w-4 h-4" /> Nueva Receta
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 border-b border-border mb-6">
-          {[
-            { id: "recipes" as Tab, label: "Mis Recetas", icon: BookOpen },
-            { id: "favorites" as Tab, label: "Favoritas", icon: Heart },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
-                tab === id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
+           <button onClick={() => setTab("recetas")} className={cn("flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors", tab === "recetas" ? "border-primary text-primary" : "border-transparent text-muted-foreground")}>
+             <BookOpen className="w-4 h-4" /> Mis Recetas
+           </button>
+           <button onClick={() => setTab("favoritos")} className={cn("flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors", tab === "favoritos" ? "border-primary text-primary" : "border-transparent text-muted-foreground")}>
+             <Heart className="w-4 h-4" /> Favoritas
+           </button>
         </div>
 
-        {/* Tab content */}
-        {tab === "recipes" && (
+        {tab === "recetas" && (
           loadingRecipes ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {Array.from({ length: 3 }).map((_, i) => <RecipeCardSkeleton key={i} />)}
             </div>
           ) : myRecipes.length === 0 ? (
-            <EmptyState
-              icon="📝"
-              title="Aún no has publicado recetas"
-              description="Comparte tu primera creación con la comunidad."
-              action={
-                <button
-                  onClick={() => navigate("/recipes/create")}
-                  className="px-6 py-2.5 rounded-full gradient-primary text-primary-foreground font-semibold text-sm"
-                >
-                  Crear primera receta
-                </button>
-              }
-            />
+            <EmptyState icon="📝" title="Aún no tienes recetas" description="Comparte tu primera creación." />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {myRecipes.map(r => (
-                <RecipeCard key={r.id} recipe={r} />
+                <RecipeCard 
+                  key={r.id} 
+                  recipe={r} 
+                  onLikeUpdate={handleLikeUpdate} // ✅ IMPORTANTE: Pasamos la función de actualización
+                />
               ))}
             </div>
           )
         )}
 
-        {tab === "favorites" && (
-          loadingFavs ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Array.from({ length: 3 }).map((_, i) => <RecipeCardSkeleton key={i} />)}
-            </div>
-          ) : favorites.length === 0 ? (
-            <EmptyState
-              icon="❤️"
-              title="No tienes recetas favoritas"
-              description="Dale like a recetas para guardarlas aquí."
-              action={
-                <button onClick={() => navigate("/")} className="px-6 py-2.5 rounded-full gradient-primary text-primary-foreground font-semibold text-sm">
-                  Explorar recetas
-                </button>
-              }
-            />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {favorites.map(r => (
-                <RecipeCard key={r.id} recipe={r} />
-              ))}
-            </div>
-          )
+        {tab === "favoritos" && (
+           <EmptyState icon="❤️" title="No tienes favoritas" description="Pronto podrás guardar recetas." />
         )}
       </div>
     </div>

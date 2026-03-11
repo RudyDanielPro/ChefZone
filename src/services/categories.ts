@@ -1,12 +1,9 @@
 // ============================================================
-// ChefZone — Categories Service
+// ChefZone — Categorias Service (ESPAÑOL)
 // ============================================================
 import request from "./api";
-import type { Category } from "@/types";
+import type { Categoria } from "@/types";
 
-/**
- * Fetch all available recipe categories.
- */
-export const getCategories = (): Promise<Category[]> => {
-  return request<Category[]>("/categories", {}, false);
+export const obtenerCategorias = (): Promise<Categoria[]> => {
+  return request<Categoria[]>("/categorias", {}, false);
 };

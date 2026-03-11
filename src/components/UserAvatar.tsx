@@ -1,7 +1,3 @@
-// ============================================================
-// ChefZone — UserAvatar Component
-// Circular avatar showing profile picture or initials fallback
-// ============================================================
 import React from "react";
 import { cn } from "@/lib/utils";
 

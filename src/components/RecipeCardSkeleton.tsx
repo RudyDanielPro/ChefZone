@@ -1,7 +1,3 @@
-// ============================================================
-// ChefZone — RecipeCardSkeleton Component
-// Loading skeleton while recipe data is fetching
-// ============================================================
 import React from "react";
 
 const RecipeCardSkeleton: React.FC = () => {

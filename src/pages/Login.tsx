@@ -6,11 +6,12 @@ import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff, ChefHat } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const Login: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  // ❌ CAMBIAR: login debe ser iniciarSesion
+  const { iniciarSesion, autenticado } = useAuth(); // ✅ Cambiar
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string })?.from || "/";
@@ -20,10 +21,10 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already authenticated
+  // ❌ CAMBIAR: isAuthenticated debe ser autenticado
   React.useEffect(() => {
-    if (isAuthenticated) navigate(from, { replace: true });
-  }, [isAuthenticated, from, navigate]);
+    if (autenticado) navigate(from, { replace: true });
+  }, [autenticado, from, navigate]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -39,7 +40,8 @@ const Login: React.FC = () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      await login({ email: form.email, password: form.password });
+      // ❌ CAMBIAR: login debe ser iniciarSesion
+      await iniciarSesion({ email: form.email, password: form.password });
       toast.success("¡Bienvenido de nuevo!");
       navigate(from, { replace: true });
     } catch (err: unknown) {
@@ -60,7 +62,6 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left — decorative */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero flex-col items-center justify-center p-12 text-primary-foreground">
         <img src={logo} alt="ChefZone" className="w-24 h-24 mb-6" />
         <h1 className="font-display text-4xl font-bold mb-4 text-center">
@@ -78,10 +79,8 @@ const Login: React.FC = () => {
         </div>
       </div>
 
-      {/* Right — form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center mb-8">
             <img src={logo} alt="ChefZone" className="w-16 h-16 mb-2" />
             <span className="font-display text-2xl font-bold text-gradient-primary">ChefZone</span>
@@ -96,7 +95,6 @@ const Login: React.FC = () => {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
               <input
@@ -108,7 +106,6 @@ const Login: React.FC = () => {
               {errors.email && <p className="text-destructive text-xs mt-1">{errors.email}</p>}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Contraseña</label>
               <div className="relative">

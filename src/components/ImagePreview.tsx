@@ -1,7 +1,4 @@
-// ============================================================
-// ChefZone — ImagePreview Component
-// URL input with live image preview
-// ============================================================
+
 import React, { useState } from "react";
 import { ImageIcon, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";

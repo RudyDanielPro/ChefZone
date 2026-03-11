@@ -1,92 +1,139 @@
 // ============================================================
-// ChefZone — Authentication Context
-// Manages user session, JWT token, login/register/logout
+// ChefZone — Authentication Context (CORREGIDO)
 // ============================================================
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import type { User, LoginPayload, RegisterPayload, AuthState } from "@/types";
-import { loginUser, registerUser, getMe } from "@/services/auth";
+import type { Usuario, LoginPayload, RegistroPayload } from "@/types";
+import { login, registro } from "@/services/auth";
 import { getToken, saveToken, removeToken } from "@/services/api";
 
-interface AuthContextValue extends AuthState {
-  login: (payload: LoginPayload) => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
-  logout: () => void;
-  updateUser: (user: User) => void;
+interface AuthContextValue {
+  usuario: Usuario | null;
+  token: string | null;
+  autenticado: boolean;
+  cargando: boolean;
+  iniciarSesion: (payload: LoginPayload) => Promise<void>;
+  registrarse: (payload: RegistroPayload) => Promise<void>;
+  cerrarSesion: () => void;
+  actualizarUsuario: (usuario: Usuario) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Función para normalizar usuario (unificar foto?.ruta, fotoPerfil, profilePicture)
+const normalizarUsuario = (user: any): Usuario => {
+  const fotoUrl = user.foto?.ruta || user.fotoPerfil || user.profilePicture || null;
+
+  return {
+    id: user.id,
+    nombre: user.nombre,
+    apellido: user.apellido,
+    email: user.email,
+    usuario: user.usuario,
+    rol: user.rol || "USER",
+    foto: fotoUrl ? { ruta: fotoUrl } : undefined,
+    profilePicture: fotoUrl,
+    // ✅ ESTO ES LO QUE FALTA:
+    recetasCount: user.recetasCount || 0,
+    likesCount: user.likesCount || 0,
+  };
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    token: null,
-    isAuthenticated: false,
-    isLoading: true,
-  });
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [autenticado, setAutenticado] = useState(false);
+  const [cargando, setCargando] = useState(true);
 
-  /**
-   * On mount: attempt to restore session from localStorage.
-   */
   useEffect(() => {
-    const restoreSession = async () => {
-      const token = getToken();
-      if (!token) {
-        setState(s => ({ ...s, isLoading: false }));
-        return;
-      }
+    const restaurarSesion = async () => {
+      const tokenGuardado = getToken();
+      const usuarioGuardado = localStorage.getItem("usuario");
 
-      try {
-        const { user } = await getMe();
-        setState({ user, token, isAuthenticated: true, isLoading: false });
-      } catch {
-        // Token is invalid or expired — clear it
-        removeToken();
-        setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
+      if (tokenGuardado && usuarioGuardado) {
+        try {
+          const usuarioParseado = JSON.parse(usuarioGuardado);
+          setUsuario(usuarioParseado);
+          setToken(tokenGuardado);
+          setAutenticado(true);
+        } catch (error) {
+          console.error("Error al restaurar sesión:", error);
+          removeToken();
+        }
       }
+      setCargando(false);
     };
 
-    restoreSession();
+    restaurarSesion();
   }, []);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    const { user, token } = await loginUser(payload);
-    saveToken(token);
-    localStorage.setItem("chefzone_user", JSON.stringify(user));
-    setState({ user, token, isAuthenticated: true, isLoading: false });
+  const iniciarSesion = useCallback(async (payload: LoginPayload) => {
+    try {
+      console.log("Iniciando sesión...");
+      const { user, token } = await login(payload);
+      console.log("Usuario recibido del login:", user);
+
+      const usuarioNormalizado = normalizarUsuario(user);
+      console.log("Usuario normalizado:", usuarioNormalizado);
+      console.log("Rol del usuario:", usuarioNormalizado.rol);
+
+      saveToken(token);
+      localStorage.setItem("usuario", JSON.stringify(usuarioNormalizado));
+      setUsuario(usuarioNormalizado);
+      setToken(token);
+      setAutenticado(true);
+    } catch (error) {
+      console.error("Error en login:", error);
+      throw error;
+    }
   }, []);
 
-  const register = useCallback(async (payload: RegisterPayload) => {
-    const { user, token } = await registerUser(payload);
-    saveToken(token);
-    localStorage.setItem("chefzone_user", JSON.stringify(user));
-    setState({ user, token, isAuthenticated: true, isLoading: false });
+  const registrarse = useCallback(async (payload: RegistroPayload) => {
+    try {
+      const { user, token } = await registro(payload);
+      const usuarioNormalizado = normalizarUsuario(user);
+      saveToken(token);
+      localStorage.setItem("usuario", JSON.stringify(usuarioNormalizado));
+      setUsuario(usuarioNormalizado);
+      setToken(token);
+      setAutenticado(true);
+    } catch (error) {
+      console.error("Error en registro:", error);
+      throw error;
+    }
   }, []);
 
-  const logout = useCallback(() => {
+  const cerrarSesion = useCallback(() => {
     removeToken();
-    setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    setUsuario(null);
+    setToken(null);
+    setAutenticado(false);
   }, []);
 
-  const updateUser = useCallback((user: User) => {
-    localStorage.setItem("chefzone_user", JSON.stringify(user));
-    setState(s => ({ ...s, user }));
+  const actualizarUsuario = useCallback((usuarioActualizado: Usuario) => {
+    localStorage.setItem("usuario", JSON.stringify(usuarioActualizado));
+    setUsuario(usuarioActualizado);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{
+      usuario,
+      token,
+      autenticado,
+      cargando,
+      iniciarSesion,
+      registrarse,
+      cerrarSesion,
+      actualizarUsuario
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-/**
- * Hook to access auth context.
- * Must be used inside <AuthProvider>.
- */
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useAuth debe usarse dentro de AuthProvider");
   }
   return ctx;
 };

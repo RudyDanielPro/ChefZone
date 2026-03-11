@@ -1,116 +1,94 @@
 // ============================================================
-// ChefZone — Shared TypeScript Types
+// ChefZone — Tipos (DEFINITIVOS - BASADO EN BACKEND REAL)
 // ============================================================
 
-export interface User {
-  id: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  age: number;
+// ===== USUARIOS =====
+export interface Usuario {
+  id: number; // o string, según tu backend
+  nombre: string;
+  apellido: string;
   email: string;
+  usuario: string;
+  rol: string;
+  foto?: { ruta: string };
   profilePicture?: string;
-  bio?: string;
-  createdAt: string;
+  recetasCount?: number; // 👈 Añadir esto
+  likesCount?: number;   // 👈 Añadir esto
 }
 
-export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  icon?: string;
-}
 
-export interface Ingredient {
-  id?: string;
-  name: string;
-  quantity: string;
-  unit?: string;
+export interface RegistroPayload {
+  nombre: string;           // ✅ SOLO estos campos (sin edad)
+  apellido: string;
+  email: string;
+  usuario: string;
+  password: string;
 }
-
-export interface RecipeStep {
-  order: number;
-  description: string;
-}
-
-export interface Author {
-  id: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  profilePicture?: string;
-}
-
-export interface Recipe {
-  id: string;
-  title: string;
-  description?: string;
-  image: string;
-  category: Category;
-  author: Author;
-  ingredients: Ingredient[];
-  steps: RecipeStep[];
-  likesCount: number;
-  isLiked?: boolean;
-  publishedAt: string;
-  updatedAt?: string;
-  cookingTime?: number;    // minutes
-  servings?: number;
-}
-
-export interface RecipeCardData {
-  id: string;
-  title: string;
-  image: string;
-  category: Category;
-  author: Author;
-  likesCount: number;
-  isLiked?: boolean;
-  publishedAt: string;
-  cookingTime?: number;
-}
-
-// ---- API Payloads ----
 
 export interface LoginPayload {
   email: string;
   password: string;
 }
 
-export interface RegisterPayload {
-  firstName: string;
-  lastName: string;
-  age: number;
-  username: string;
-  email: string;
-  password: string;
-}
-
-export interface RecipeFormPayload {
-  title: string;
-  description?: string;
-  image: string;
-  categoryId: string;
-  ingredients: Ingredient[];
-  steps: RecipeStep[];
-  cookingTime?: number;
-  servings?: number;
-}
-
-export interface UpdateProfilePayload {
-  firstName?: string;
-  lastName?: string;
-  age?: number;
-  username?: string;
-  profilePicture?: string;
+export interface ActualizarPerfilPayload {
+  nombre?: string;
+  apellido?: string;
+  email?: string;
+  usuario?: string;
   bio?: string;
 }
 
-// ---- API Responses ----
-
 export interface AuthResponse {
-  user: User;
   token: string;
+  user: Usuario;
+}
+
+// ===== CATEGORÍAS =====
+export interface Categoria {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+}
+
+// ===== RECETAS =====
+export interface Receta {
+  id: number;
+  titulo: string;
+  descripcion?: string;
+  instrucciones: string;
+  ingredientes: string;
+  categoria: Categoria;
+  usuario: Usuario;
+  foto?: {
+    ruta: string;
+  };
+  // Propiedades que vienen del DTO RecipeResponse
+  imagenUrl?: string;          // URL plana de Cloudinary
+  cantidadLikes: number;       // Match con el backend
+  likedByCurrentUser: boolean; // Match con el backend (antes isLiked)
+  tiempoPreparacion?: number;
+  porciones?: number;
+}
+
+export interface RecetaResumen {
+  id: number;
+  titulo: string;
+  descripcionCorta?: string;   // Match con RecipeSummaryResponse
+  imagenUrl?: string;          // Match con RecipeSummaryResponse
+  categoriaNombre: string;     // Match con RecipeSummaryResponse
+  autorNombre: string;         // Match con RecipeSummaryResponse
+  autorFoto?: string;
+  cantidadLikes: number;       // Match con RecipeSummaryResponse
+  likedByCurrentUser: boolean; // Match con RecipeSummaryResponse
+  tiempoPreparacion?: number;
+}
+
+export interface RecetaPayload {
+  titulo: string;
+  descripcion?: string;
+  instrucciones: string;
+  ingredientes: string;
+  categoriaId: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -119,27 +97,4 @@ export interface PaginatedResponse<T> {
   page: number;
   perPage: number;
   totalPages: number;
-}
-
-export interface ApiError {
-  message: string;
-  status?: number;
-}
-
-// ---- Filters ----
-
-export interface RecipeFilters {
-  search?: string;
-  categoryId?: string;
-  page?: number;
-  perPage?: number;
-}
-
-// ---- Auth state ----
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
 }

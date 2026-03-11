@@ -1,7 +1,4 @@
-// ============================================================
-// ChefZone — EmptyState Component
-// Friendly empty state with icon, title, and action
-// ============================================================
+
 import React from "react";
 import { cn } from "@/lib/utils";
 

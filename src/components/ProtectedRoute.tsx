@@ -17,10 +17,10 @@ interface ProtectedRouteProps {
  * Redirects to /login with return URL if not authenticated.
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { autenticado, cargando } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  if (cargando) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -28,7 +28,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!autenticado) {
     return (
       <Navigate
         to="/login"

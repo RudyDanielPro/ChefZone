@@ -1,150 +1,165 @@
 // ============================================================
-// ChefZone — Recipe Form Page (Create & Edit)
-// Shared form component for creating/editing recipes
+// ChefZone — Formulario de Receta (CORREGIDO)
 // ============================================================
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import ImagePreview from "@/components/ImagePreview";
-import { createRecipe, updateRecipe, getRecipeById } from "@/services/recipes";
-import { getCategories } from "@/services/categories";
+import { crearReceta, actualizarReceta, obtenerRecetaPorId, subirImagenReceta } from "@/services/recipes";
+import { obtenerCategorias } from "@/services/categories";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowLeft, Loader2, GripVertical } from "lucide-react";
-import type { Category, Ingredient, RecipeStep } from "@/types";
+import { Plus, Trash2, ArrowLeft, Loader2, Upload } from "lucide-react";
+import type { Categoria } from "@/types";
 import { cn } from "@/lib/utils";
 
-interface RecipeFormState {
-  title: string;
-  description: string;
-  image: string;
-  categoryId: string;
-  ingredients: Ingredient[];
-  steps: RecipeStep[];
-  cookingTime: string;
-  servings: string;
+interface FormState {
+  titulo: string;
+  descripcion: string;
+  imagenUrl: string;
+  archivoImagen: File | null;
+  categoriaId: number | "";
+  ingredientes: string;
+  instrucciones: string;
+  tiempoPreparacion: string;
+  porciones: string;
 }
 
-const defaultForm: RecipeFormState = {
-  title: "",
-  description: "",
-  image: "",
-  categoryId: "",
-  ingredients: [{ name: "", quantity: "", unit: "" }],
-  steps: [{ order: 1, description: "" }],
-  cookingTime: "",
-  servings: "",
+const defaultForm: FormState = {
+  titulo: "",
+  descripcion: "",
+  imagenUrl: "",
+  archivoImagen: null,
+  categoriaId: "",
+  ingredientes: "",
+  instrucciones: "",
+  tiempoPreparacion: "",
+  porciones: "",
 };
 
 interface RecipeFormPageProps {
-  mode: "create" | "edit";
+  modo: "crear" | "editar";
 }
 
-const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ mode }) => {
+const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ modo }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  const [form, setForm] = useState<RecipeFormState>(defaultForm);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(mode === "edit");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<FormState>(defaultForm);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [cargandoDatos, setCargandoDatos] = useState(modo === "editar");
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
+  const [errores, setErrores] = useState<Record<string, string>>({});
 
-  // Load categories
   useEffect(() => {
-    getCategories()
-      .then(setCategories)
+    obtenerCategorias()
+      .then(setCategorias)
       .catch(() => {});
   }, []);
 
-  // Load existing recipe for edit
   useEffect(() => {
-    if (mode !== "edit" || !id) return;
-    const load = async () => {
+    if (modo !== "editar" || !id) return;
+    const cargar = async () => {
       try {
-        const recipe = await getRecipeById(id);
+        const receta = await obtenerRecetaPorId(parseInt(id));
         setForm({
-          title: recipe.title,
-          description: recipe.description ?? "",
-          image: recipe.image,
-          categoryId: recipe.category.id,
-          ingredients: recipe.ingredients.length > 0 ? recipe.ingredients : [{ name: "", quantity: "", unit: "" }],
-          steps: recipe.steps.length > 0 ? recipe.steps : [{ order: 1, description: "" }],
-          cookingTime: recipe.cookingTime ? String(recipe.cookingTime) : "",
-          servings: recipe.servings ? String(recipe.servings) : "",
+          titulo: receta.titulo,
+          descripcion: receta.descripcion || "",
+          imagenUrl: receta.foto?.ruta || "",
+          archivoImagen: null,
+          categoriaId: receta.categoria.id,
+          ingredientes: receta.ingredientes,
+          instrucciones: receta.instrucciones,
+          tiempoPreparacion: receta.tiempoPreparacion ? String(receta.tiempoPreparacion) : "",
+          porciones: receta.porciones ? String(receta.porciones) : "",
         });
       } catch {
         toast.error("No se pudo cargar la receta");
         navigate("/profile");
       } finally {
-        setLoadingData(false);
+        setCargandoDatos(false);
       }
     };
-    load();
-  }, [mode, id, navigate]);
+    cargar();
+  }, [modo, id, navigate]);
 
-  const validate = (): boolean => {
+  const validar = (): boolean => {
     const errs: Record<string, string> = {};
-    if (!form.title.trim()) errs.title = "El título es obligatorio";
-    if (!form.image.trim()) errs.image = "La imagen es obligatoria";
-    if (!form.categoryId) errs.categoryId = "Selecciona una categoría";
-    if (form.ingredients.every(i => !i.name.trim())) errs.ingredients = "Agrega al menos un ingrediente";
-    if (form.steps.every(s => !s.description.trim())) errs.steps = "Agrega al menos un paso";
-    setErrors(errs);
+    if (!form.titulo.trim()) errs.titulo = "El título es obligatorio";
+    if (!form.imagenUrl.trim() && !form.archivoImagen) errs.imagen = "La imagen es obligatoria";
+    if (!form.categoriaId) errs.categoriaId = "Selecciona una categoría";
+    if (!form.ingredientes.trim()) errs.ingredientes = "Los ingredientes son obligatorios";
+    if (!form.instrucciones.trim()) errs.instrucciones = "Las instrucciones son obligatorias";
+    setErrores(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setForm(f => ({ ...f, archivoImagen: file, imagenUrl: URL.createObjectURL(file) }));
+      if (errores.imagen) setErrores(er => ({ ...er, imagen: "" }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) {
+    if (!validar()) {
       toast.error("Por favor completa los campos obligatorios");
       return;
     }
-    setLoading(true);
-    const payload = {
-      title: form.title.trim(),
-      description: form.description.trim() || undefined,
-      image: form.image.trim(),
-      categoryId: form.categoryId,
-      ingredients: form.ingredients.filter(i => i.name.trim()),
-      steps: form.steps.filter(s => s.description.trim()).map((s, i) => ({ ...s, order: i + 1 })),
-      cookingTime: form.cookingTime ? Number(form.cookingTime) : undefined,
-      servings: form.servings ? Number(form.servings) : undefined,
-    };
+    
+    setCargando(true);
+    
     try {
-      const saved = mode === "create"
-        ? await createRecipe(payload)
-        : await updateRecipe(id!, payload);
-      toast.success(mode === "create" ? "Receta publicada 🎉" : "Receta actualizada");
-      navigate(`/recipes/${saved.id}`);
+      const payload = {
+        titulo: form.titulo.trim(),
+        descripcion: form.descripcion.trim() || undefined,
+        instrucciones: form.instrucciones.trim(),
+        ingredientes: form.ingredientes.trim(),
+        categoriaId: Number(form.categoriaId),
+      };
+
+      let recetaGuardada;
+
+      if (modo === "crear") {
+        recetaGuardada = await crearReceta(payload);
+      } else {
+        // ✅ Validar que el ID existe y es número
+        if (!id) {
+          toast.error("ID de receta no válido");
+          return;
+        }
+        const recipeId = parseInt(id);
+        if (isNaN(recipeId)) {
+          toast.error("ID de receta inválido");
+          return;
+        }
+        recetaGuardada = await actualizarReceta(recipeId, payload);
+      }
+
+      // Subir imagen si existe
+      if (form.archivoImagen) {
+        setSubiendoImagen(true);
+        try {
+          recetaGuardada = await subirImagenReceta(recetaGuardada.id, form.archivoImagen);
+          toast.success("Imagen subida correctamente");
+        } catch (error) {
+          toast.error("La receta se guardó pero la imagen no pudo subirse");
+        } finally {
+          setSubiendoImagen(false);
+        }
+      }
+
+      toast.success(modo === "crear" ? "Receta publicada 🎉" : "Receta actualizada");
+      navigate(`/recetas/${recetaGuardada.id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al guardar la receta";
       toast.error(msg);
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   };
-
-  // Ingredient helpers
-  const updateIngredient = (i: number, field: keyof Ingredient, val: string) => {
-    setForm(f => {
-      const ings = [...f.ingredients];
-      ings[i] = { ...ings[i], [field]: val };
-      return { ...f, ingredients: ings };
-    });
-  };
-  const addIngredient = () => setForm(f => ({ ...f, ingredients: [...f.ingredients, { name: "", quantity: "", unit: "" }] }));
-  const removeIngredient = (i: number) => setForm(f => ({ ...f, ingredients: f.ingredients.filter((_, idx) => idx !== i) }));
-
-  // Step helpers
-  const updateStep = (i: number, val: string) => {
-    setForm(f => {
-      const steps = [...f.steps];
-      steps[i] = { ...steps[i], description: val };
-      return { ...f, steps };
-    });
-  };
-  const addStep = () => setForm(f => ({ ...f, steps: [...f.steps, { order: f.steps.length + 1, description: "" }] }));
-  const removeStep = (i: number) => setForm(f => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
 
   const inputCls = (err?: string) => cn(
     "w-full rounded-xl border px-4 py-2.5 text-sm bg-card text-foreground placeholder:text-muted-foreground",
@@ -152,7 +167,7 @@ const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ mode }) => {
     err ? "border-destructive" : "border-input"
   );
 
-  if (loadingData) {
+  if (cargandoDatos) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -166,151 +181,93 @@ const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ mode }) => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
       <div className="container py-8 max-w-4xl">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="font-display text-2xl font-bold text-foreground">
-              {mode === "create" ? "Nueva Receta" : "Editar Receta"}
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {mode === "create" ? "Comparte tu creación con la comunidad" : "Actualiza tu receta"}
-            </p>
+            <h1 className="font-display text-2xl font-bold text-foreground">{modo === "crear" ? "Nueva Receta" : "Editar Receta"}</h1>
+            <p className="text-muted-foreground text-sm">{modo === "crear" ? "Comparte tu creación con la comunidad" : "Actualiza tu receta"}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="grid md:grid-cols-5 gap-8">
-            {/* Left column */}
             <div className="md:col-span-3 space-y-6">
-              {/* Title */}
+              {/* Título */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Título *</label>
-                <input
-                  value={form.title}
-                  onChange={e => { setForm(f => ({ ...f, title: e.target.value })); if (errors.title) setErrors(er => ({ ...er, title: "" })); }}
-                  placeholder="Ej: Paella Valenciana tradicional"
-                  className={inputCls(errors.title)}
-                />
-                {errors.title && <p className="text-destructive text-xs mt-1">{errors.title}</p>}
+                <input value={form.titulo} onChange={e => { setForm(f => ({ ...f, titulo: e.target.value })); if (errores.titulo) setErrores(er => ({ ...er, titulo: "" })); }} placeholder="Ej: Paella Valenciana tradicional" className={inputCls(errores.titulo)} />
+                {errores.titulo && <p className="text-destructive text-xs mt-1">{errores.titulo}</p>}
               </div>
 
-              {/* Description */}
+              {/* Descripción */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Descripción</label>
-                <textarea
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                  rows={3}
-                  placeholder="Describe brevemente tu receta..."
-                  className={`${inputCls()} resize-none`}
-                />
+                <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} rows={3} placeholder="Describe brevemente tu receta..." className={`${inputCls()} resize-none`} />
               </div>
 
-              {/* Category + time + servings */}
+              {/* Categoría + tiempo + porciones */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-3 sm:col-span-1">
                   <label className="block text-sm font-medium text-foreground mb-1.5">Categoría *</label>
-                  <select
-                    value={form.categoryId}
-                    onChange={e => { setForm(f => ({ ...f, categoryId: e.target.value })); if (errors.categoryId) setErrors(er => ({ ...er, categoryId: "" })); }}
-                    className={inputCls(errors.categoryId)}
-                  >
+                  <select value={form.categoriaId} onChange={e => { setForm(f => ({ ...f, categoriaId: e.target.value ? Number(e.target.value) : "" })); if (errores.categoriaId) setErrores(er => ({ ...er, categoriaId: "" })); }} className={inputCls(errores.categoriaId)}>
                     <option value="">Seleccionar</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
-                  {errors.categoryId && <p className="text-destructive text-xs mt-1">{errors.categoryId}</p>}
+                  {errores.categoriaId && <p className="text-destructive text-xs mt-1">{errores.categoriaId}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Tiempo (min)</label>
-                  <input type="number" min={1} value={form.cookingTime} onChange={e => setForm(f => ({ ...f, cookingTime: e.target.value }))} placeholder="30" className={inputCls()} />
+                  <input type="number" min={1} value={form.tiempoPreparacion} onChange={e => setForm(f => ({ ...f, tiempoPreparacion: e.target.value }))} placeholder="30" className={inputCls()} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Porciones</label>
-                  <input type="number" min={1} value={form.servings} onChange={e => setForm(f => ({ ...f, servings: e.target.value }))} placeholder="4" className={inputCls()} />
+                  <input type="number" min={1} value={form.porciones} onChange={e => setForm(f => ({ ...f, porciones: e.target.value }))} placeholder="4" className={inputCls()} />
                 </div>
               </div>
 
-              {/* Ingredients */}
+              {/* Ingredientes */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-foreground">Ingredientes *</label>
-                  <button type="button" onClick={addIngredient} className="text-xs text-primary hover:underline flex items-center gap-1">
-                    <Plus className="w-3.5 h-3.5" /> Agregar
-                  </button>
-                </div>
-                {errors.ingredients && <p className="text-destructive text-xs mb-2">{errors.ingredients}</p>}
-                <div className="space-y-2">
-                  {form.ingredients.map((ing, i) => (
-                    <div key={i} className="flex gap-2 items-start">
-                      <input value={ing.quantity} onChange={e => updateIngredient(i, "quantity", e.target.value)} placeholder="Cant." className={`${inputCls()} w-20 flex-shrink-0`} />
-                      <input value={ing.unit || ""} onChange={e => updateIngredient(i, "unit", e.target.value)} placeholder="Unidad" className={`${inputCls()} w-24 flex-shrink-0`} />
-                      <input value={ing.name} onChange={e => updateIngredient(i, "name", e.target.value)} placeholder="Ingrediente" className={inputCls()} />
-                      {form.ingredients.length > 1 && (
-                        <button type="button" onClick={() => removeIngredient(i)} className="p-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Ingredientes *</label>
+                <textarea value={form.ingredientes} onChange={e => { setForm(f => ({ ...f, ingredientes: e.target.value })); if (errores.ingredientes) setErrores(er => ({ ...er, ingredientes: "" })); }} rows={5} placeholder="Ej: 2 tazas de harina&#10;3 huevos&#10;200g de chocolate" className={`${inputCls(errores.ingredientes)} resize-none font-mono text-sm`} />
+                {errores.ingredientes && <p className="text-destructive text-xs mt-1">{errores.ingredientes}</p>}
+                <p className="text-xs text-muted-foreground mt-1">Un ingrediente por línea</p>
               </div>
 
-              {/* Steps */}
+              {/* Instrucciones */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-foreground">Instrucciones *</label>
-                  <button type="button" onClick={addStep} className="text-xs text-primary hover:underline flex items-center gap-1">
-                    <Plus className="w-3.5 h-3.5" /> Agregar paso
-                  </button>
-                </div>
-                {errors.steps && <p className="text-destructive text-xs mb-2">{errors.steps}</p>}
-                <div className="space-y-3">
-                  {form.steps.map((step, i) => (
-                    <div key={i} className="flex gap-3 items-start">
-                      <div className="flex-shrink-0 w-8 h-8 mt-1.5 rounded-full gradient-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                        {i + 1}
-                      </div>
-                      <textarea
-                        value={step.description}
-                        onChange={e => updateStep(i, e.target.value)}
-                        rows={2}
-                        placeholder={`Paso ${i + 1}...`}
-                        className={`${inputCls()} resize-none flex-1`}
-                      />
-                      {form.steps.length > 1 && (
-                        <button type="button" onClick={() => removeStep(i)} className="p-2.5 mt-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Instrucciones *</label>
+                <textarea value={form.instrucciones} onChange={e => { setForm(f => ({ ...f, instrucciones: e.target.value })); if (errores.instrucciones) setErrores(er => ({ ...er, instrucciones: "" })); }} rows={8} placeholder="Paso a paso de la preparación..." className={`${inputCls(errores.instrucciones)} resize-none`} />
+                {errores.instrucciones && <p className="text-destructive text-xs mt-1">{errores.instrucciones}</p>}
               </div>
             </div>
 
-            {/* Right column — image */}
+            {/* Columna derecha - Imagen */}
             <div className="md:col-span-2">
-              <div className="sticky top-24">
-                <ImagePreview
-                  value={form.image}
-                  onChange={url => { setForm(f => ({ ...f, image: url })); if (errors.image) setErrors(er => ({ ...er, image: "" })); }}
-                  label="Imagen de la receta *"
-                  aspectRatio="recipe"
-                />
-                {errors.image && <p className="text-destructive text-xs mt-1">{errors.image}</p>}
+              <div className="sticky top-24 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Imagen de la receta *</label>
+                  <div className="flex items-center gap-2">
+                    <label className={cn("flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-input bg-card text-sm cursor-pointer", "hover:bg-muted transition-colors")}>
+                      <Upload className="w-4 h-4" />
+                      <span>{form.archivoImagen ? form.archivoImagen.name : "Seleccionar imagen"}</span>
+                      <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    </label>
+                  </div>
+                  {errores.imagen && <p className="text-destructive text-xs mt-1">{errores.imagen}</p>}
+                </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full mt-6 py-3 rounded-xl gradient-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 shadow-md"
-                >
-                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {loading ? "Guardando..." : mode === "create" ? "Publicar Receta 🚀" : "Guardar Cambios"}
+                {form.imagenUrl && (
+                  <div className="rounded-xl overflow-hidden border border-border bg-muted aspect-[4/3]">
+                    <img src={form.imagenUrl} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+
+                <button type="submit" disabled={cargando || subiendoImagen} className="w-full mt-6 py-3 rounded-xl gradient-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2 shadow-md">
+                  {(cargando || subiendoImagen) && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {cargando ? "Guardando..." : subiendoImagen ? "Subiendo imagen..." : modo === "crear" ? "Publicar Receta 🚀" : "Guardar Cambios"}
                 </button>
               </div>
             </div>

@@ -1,6 +1,5 @@
 // ============================================================
-// ChefZone — Home Page
-// Recipe listing with search, category filter, and pagination
+// ChefZone — Home Page (ESPAÑOL - CON GUARDAS)
 // ============================================================
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -10,126 +9,135 @@ import RecipeCardSkeleton from "@/components/RecipeCardSkeleton";
 import SearchBar from "@/components/SearchBar";
 import CategoryFilter from "@/components/CategoryFilter";
 import EmptyState from "@/components/EmptyState";
-import { getRecipes } from "@/services/recipes";
-import { getCategories } from "@/services/categories";
-import type { RecipeCardData, Category } from "@/types";
+import { obtenerRecetas } from "@/services/recipes"; 
+import { obtenerCategorias } from "@/services/categories"; 
+import type { RecetaResumen, Categoria } from "@/types"; 
 import { toast } from "sonner";
-import { Loader2, ChefHat } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const RECIPES_PER_PAGE = 12;
+const RECETAS_POR_PAGINA = 12;
 
 const Home: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { autenticado } = useAuth();
 
-  // State
-  const [recipes, setRecipes] = useState<RecipeCardData[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingRecipes, setLoadingRecipes] = useState(true);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [recetas, setRecetas] = useState<RecetaResumen[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [cargandoRecetas, setCargandoRecetas] = useState(true);
+  const [cargandoCategorias, setCargandoCategorias] = useState(true);
+  const [cargandoMas, setCargandoMas] = useState(false);
+  const [pagina, setPagina] = useState(1);
+  const [hayMas, setHayMas] = useState(true);
   const [total, setTotal] = useState(0);
 
-  const searchValue = searchParams.get("search") || "";
-  const categoryId = searchParams.get("category") || "";
+  const busqueda = searchParams.get("busqueda") || "";
+  const categoriaId = searchParams.get("categoria") || "";
 
   const loaderRef = useRef<HTMLDivElement>(null);
 
-  // Fetch categories once
   useEffect(() => {
     const fetchCats = async () => {
       try {
-        const cats = await getCategories();
-        setCategories(cats);
+        const cats = await obtenerCategorias();
+        setCategorias(cats || []); // ✅ asegurar array
       } catch {
-        // Non-critical
+        setCategorias([]); // ✅ asegurar array aunque falle
       } finally {
-        setLoadingCategories(false);
+        setCargandoCategorias(false);
       }
     };
     fetchCats();
   }, []);
 
-  // Fetch recipes when filters change (reset to page 1)
-  const fetchRecipes = useCallback(async (reset = true) => {
-    const targetPage = reset ? 1 : page + 1;
+  const fetchRecetas = useCallback(async (reset = true) => {
+    const paginaTarget = reset ? 1 : pagina + 1;
+    
     if (reset) {
-      setLoadingRecipes(true);
-      setPage(1);
+      setCargandoRecetas(true);
+      setPagina(1);
     } else {
-      setLoadingMore(true);
+      setCargandoMas(true);
     }
 
     try {
-      const res = await getRecipes({
-        search: searchValue || undefined,
-        categoryId: categoryId || undefined,
-        page: targetPage,
-        perPage: RECIPES_PER_PAGE,
+      // 1. Obtenemos la respuesta
+      const res = await obtenerRecetas({
+        busqueda: busqueda || undefined,
+        categoriaId: categoriaId ? parseInt(categoriaId) : undefined,
+        pagina: paginaTarget,
+        porPagina: RECETAS_POR_PAGINA,
       });
+
+      // 2. CORRECCIÓN AQUÍ: 
+      // Si 'res' es un Array directamente (como muestra tu log), lo usamos.
+      // Si es un objeto con .data, usamos .data.
+      const nuevasRecetas = Array.isArray(res) ? res : (res.data || []);
+
       if (reset) {
-        setRecipes(res.data);
+        setRecetas(nuevasRecetas);
       } else {
-        setRecipes(prev => [...prev, ...res.data]);
-        setPage(targetPage);
+        setRecetas(prev => [...(prev || []), ...nuevasRecetas]);
+        setPagina(paginaTarget);
       }
-      setTotal(res.total);
-      setHasMore(targetPage < res.totalPages);
+
+      // 3. Ajuste de paginación manual (ya que el JSON no trae totalPages)
+      setTotal(nuevasRecetas.length);
+      setHayMas(nuevasRecetas.length === RECETAS_POR_PAGINA);
+
     } catch (error) {
-      toast.error("No se pudieron cargar las recetas. Intenta de nuevo.");
+      console.error("Error cargando recetas:", error);
+      toast.error("No se pudieron cargar las recetas.");
+      if (reset) setRecetas([]);
     } finally {
-      setLoadingRecipes(false);
-      setLoadingMore(false);
+      setCargandoRecetas(false);
+      setCargandoMas(false);
     }
-  }, [searchValue, categoryId, page]);
+  }, [busqueda, categoriaId, pagina]);
 
   useEffect(() => {
-    fetchRecipes(true);
-  }, [searchValue, categoryId]);
+    fetchRecetas(true);
+  }, [busqueda, categoriaId]);
 
-  // Infinite scroll via IntersectionObserver
   useEffect(() => {
-    if (!loaderRef.current || !hasMore) return;
+    if (!loaderRef.current || !hayMas) return;
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && !loadingMore && !loadingRecipes) {
-          fetchRecipes(false);
+        if (entries[0].isIntersecting && !cargandoMas && !cargandoRecetas) {
+          fetchRecetas(false);
         }
       },
       { threshold: 0.1 }
     );
     observer.observe(loaderRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loadingRecipes, fetchRecipes]);
+  }, [hayMas, cargandoMas, cargandoRecetas, fetchRecetas]);
 
   const handleSearch = (value: string) => {
     const params = new URLSearchParams(searchParams);
-    if (value) params.set("search", value);
-    else params.delete("search");
+    if (value) params.set("busqueda", value);
+    else params.delete("busqueda");
     setSearchParams(params);
   };
 
   const handleSearchChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
-    if (value) params.set("search", value);
-    else params.delete("search");
+    if (value) params.set("busqueda", value);
+    else params.delete("busqueda");
     setSearchParams(params);
   };
 
   const handleCategorySelect = (id: string) => {
     const params = new URLSearchParams(searchParams);
-    if (id) params.set("category", id);
-    else params.delete("category");
+    if (id) params.set("categoria", id);
+    else params.delete("categoria");
     setSearchParams(params);
   };
 
-  const handleLikeUpdate = (id: string, likesCount: number, isLiked: boolean) => {
-    setRecipes(prev =>
-      prev.map(r => r.id === id ? { ...r, likesCount, isLiked } : r)
+  const handleLikeUpdate = (id: number, cantidadLikes: number, liked: boolean) => {
+    setRecetas(prev =>
+      (prev || []).map(r => r.id === id ? { ...r, cantidadLikes, isLiked: liked } : r)
     );
   };
 
@@ -137,7 +145,6 @@ const Home: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Hero banner */}
       <section className="gradient-hero py-12 px-4 text-center text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 opacity-10"
           style={{
@@ -152,10 +159,9 @@ const Home: React.FC = () => {
             Busca por ingredientes, explora categorías y comparte tus creaciones con la comunidad ChefZone.
           </p>
 
-          {/* Search bar */}
           <div className="max-w-2xl mx-auto">
             <SearchBar
-              value={searchValue}
+              value={busqueda}
               onChange={handleSearchChange}
               onSubmit={handleSearch}
               placeholder="Buscar por ingrediente o nombre de receta..."
@@ -165,47 +171,43 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Main content */}
       <main className="container py-8">
-        {/* Category filter */}
         <div className="mb-6">
           <CategoryFilter
-            categories={categories}
-            selected={categoryId}
+            categorias={categorias || []} // ✅ asegurar array
+            seleccionada={categoriaId}
             onSelect={handleCategorySelect}
-            loading={loadingCategories}
+            cargando={cargandoCategorias}
           />
         </div>
 
-        {/* Results count */}
-        {!loadingRecipes && recipes.length > 0 && (
+        {!cargandoRecetas && (recetas?.length || 0) > 0 && (
           <p className="text-sm text-muted-foreground mb-4">
-            {searchValue || categoryId
-              ? `${total} resultado${total !== 1 ? "s" : ""} encontrado${total !== 1 ? "s" : ""}`
-              : `${total} recetas disponibles`}
+            {busqueda || categoriaId
+              ? `${total || 0} resultado${total !== 1 ? "s" : ""} encontrado${total !== 1 ? "s" : ""}`
+              : `${total || 0} recetas disponibles`}
           </p>
         )}
 
-        {/* Recipe grid */}
-        {loadingRecipes ? (
+        {cargandoRecetas ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <RecipeCardSkeleton key={i} />
             ))}
           </div>
-        ) : recipes.length === 0 ? (
+        ) : (recetas?.length || 0) === 0 ? (
           <EmptyState
             icon="🔍"
             title="No se encontraron recetas"
             description={
-              searchValue || categoryId
+              busqueda || categoriaId
                 ? "Intenta con otros términos o categorías."
                 : "Aún no hay recetas publicadas."
             }
             action={
-              isAuthenticated ? (
+              autenticado ? (
                 <button
-                  onClick={() => navigate("/recipes/create")}
+                  onClick={() => navigate("/recetas/crear")}
                   className="px-6 py-2.5 rounded-full gradient-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Publicar primera receta
@@ -215,22 +217,21 @@ const Home: React.FC = () => {
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {recipes.map(recipe => (
+            {(recetas || []).map(receta => (
               <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
+                key={receta.id}
+                recipe={receta}
                 onLikeUpdate={handleLikeUpdate}
               />
             ))}
           </div>
         )}
 
-        {/* Infinite scroll loader */}
         <div ref={loaderRef} className="flex justify-center py-8">
-          {loadingMore && (
+          {cargandoMas && (
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           )}
-          {!hasMore && recipes.length > 0 && (
+          {!hayMas && (recetas?.length || 0) > 0 && (
             <p className="text-muted-foreground text-sm">Has visto todas las recetas 🎉</p>
           )}
         </div>

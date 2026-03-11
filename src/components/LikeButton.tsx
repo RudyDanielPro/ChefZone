@@ -1,67 +1,79 @@
-// ============================================================
-// ChefZone — LikeButton Component
-// Heart button that toggles liked state with animation
-// ============================================================
 import React, { useState } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LikeButtonProps {
-  isLiked?: boolean;
+  isLiked: boolean;
   count: number;
-  onToggle: () => void;
+  onToggle: (e?: React.MouseEvent) => Promise<void>;
   disabled?: boolean;
-  showCount?: boolean;
   size?: "sm" | "md";
 }
 
-/**
- * Animated heart button with like count.
- * When clicked triggers onToggle callback.
- */
 const LikeButton: React.FC<LikeButtonProps> = ({
-  isLiked = false,
+  isLiked,
   count,
   onToggle,
   disabled = false,
-  showCount = true,
   size = "md",
 }) => {
-  const [animating, setAnimating] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const RED_COLOR = "#dc2626";
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (disabled) return;
-    setAnimating(true);
-    setTimeout(() => setAnimating(false), 350);
-    onToggle();
+    if (disabled || isPending) return;
+
+    setIsPending(true);
+    try {
+      await onToggle(e); // Espera a que la tarjeta o el detalle hagan la llamada al backend
+    } catch (error) {
+      console.error("Error en like:", error);
+    } finally {
+      setIsPending(false); // Ahora sí se ejecutará porque el componente no fue destruido
+    }
   };
 
   return (
     <button
-      onClick={handleClick}
-      disabled={disabled}
-      aria-label={isLiked ? "Quitar like" : "Dar like"}
+      // ❌ ELIMINADO: key={isLiked ? "liked" : "unliked"}
+      type="button"
+      onClick={handleLike}
+      disabled={disabled || isPending}
       className={cn(
-        "flex items-center gap-1.5 rounded-full transition-all duration-200 font-medium",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-heart/50",
-        size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
-        isLiked
-          ? "bg-heart/10 text-heart"
-          : "bg-muted text-muted-foreground hover:bg-heart/10 hover:text-heart",
-        disabled && "cursor-default opacity-70"
+        "group flex items-center justify-center gap-2 rounded-full transition-all duration-300 border shadow-sm active:scale-95",
+        size === "sm" ? "px-2.5 py-1 text-xs" : "px-4 py-2 text-sm",
+        isLiked 
+          ? "bg-red-50 border-red-200" 
+          : "bg-secondary/40 border-transparent hover:bg-red-50",
+        isPending && "opacity-80 cursor-wait"
       )}
+      style={{ color: isLiked ? RED_COLOR : undefined }}
     >
-      <Heart
-        className={cn(
-          "transition-all duration-200",
-          size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4",
-          isLiked && "fill-current",
-          animating && "animate-pulse-heart"
+      <div className="relative flex items-center justify-center">
+        {isPending ? (
+          <Loader2 className={cn("animate-spin text-muted-foreground", size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4")} />
+        ) : (
+          <Heart
+            className={cn(
+              "transition-all duration-300",
+              size === "sm" ? "w-4 h-4" : "w-5 h-5",
+              isLiked ? "scale-110" : ""
+            )}
+            fill={isLiked ? RED_COLOR : "none"}
+            stroke={isLiked ? RED_COLOR : "currentColor"}
+            strokeWidth={isLiked ? 2.5 : 2}
+          />
         )}
-      />
-      {showCount && <span>{count}</span>}
+      </div>
+      
+      <span 
+        className="font-bold tabular-nums tracking-tight transition-colors duration-300"
+        style={{ color: isLiked ? RED_COLOR : "inherit" }}
+      >
+        {count}
+      </span>
     </button>
   );
 };

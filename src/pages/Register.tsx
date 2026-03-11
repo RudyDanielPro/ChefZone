@@ -1,6 +1,5 @@
 // ============================================================
-// ChefZone — Register Page
-// New user registration form with all required fields
+// ChefZone — Register Page (CORREGIDO - SIN EDAD)
 // ============================================================
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -10,24 +9,22 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 interface FormState {
-  firstName: string;
-  lastName: string;
-  age: string;
-  username: string;
+  nombre: string;
+  apellido: string;
+  usuario: string;
   email: string;
   password: string;
   confirmPassword: string;
 }
 
 const Register: React.FC = () => {
-  const { register, isAuthenticated } = useAuth();
+  const { registrarse, autenticado } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<FormState>({
-    firstName: "",
-    lastName: "",
-    age: "",
-    username: "",
+    nombre: "",
+    apellido: "",
+    usuario: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -37,8 +34,8 @@ const Register: React.FC = () => {
   const [errors, setErrors] = useState<Partial<FormState>>({});
 
   React.useEffect(() => {
-    if (isAuthenticated) navigate("/", { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (autenticado) navigate("/", { replace: true });
+  }, [autenticado, navigate]);
 
   const setField = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(f => ({ ...f, [key]: e.target.value }));
@@ -47,12 +44,10 @@ const Register: React.FC = () => {
 
   const validate = (): boolean => {
     const errs: Partial<FormState> = {};
-    if (!form.firstName.trim()) errs.firstName = "Obligatorio";
-    if (!form.lastName.trim()) errs.lastName = "Obligatorio";
-    const age = Number(form.age);
-    if (!form.age || isNaN(age) || age < 13 || age > 120) errs.age = "Edad inválida (13-120)";
-    if (!form.username.trim()) errs.username = "Obligatorio";
-    else if (form.username.length < 3) errs.username = "Mínimo 3 caracteres";
+    if (!form.nombre.trim()) errs.nombre = "Obligatorio";
+    if (!form.apellido.trim()) errs.apellido = "Obligatorio";
+    if (!form.usuario.trim()) errs.usuario = "Obligatorio";
+    else if (form.usuario.length < 3) errs.usuario = "Mínimo 3 caracteres";
     if (!form.email.trim()) errs.email = "Obligatorio";
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = "Email inválido";
     if (!form.password) errs.password = "Obligatorio";
@@ -67,11 +62,10 @@ const Register: React.FC = () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        age: Number(form.age),
-        username: form.username.trim(),
+      await registrarse({
+        nombre: form.nombre.trim(),
+        apellido: form.apellido.trim(),
+        usuario: form.usuario.trim(),
         email: form.email.trim(),
         password: form.password,
       });
@@ -90,7 +84,6 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left — decorative */}
       <div className="hidden lg:flex lg:w-2/5 gradient-hero flex-col items-center justify-center p-12 text-primary-foreground">
         <img src={logo} alt="ChefZone" className="w-20 h-20 mb-6" />
         <h1 className="font-display text-3xl font-bold mb-4 text-center">
@@ -108,7 +101,6 @@ const Register: React.FC = () => {
         </div>
       </div>
 
-      {/* Right — form */}
       <div className="w-full lg:w-3/5 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-lg">
           <div className="lg:hidden flex flex-col items-center mb-6">
@@ -125,42 +117,31 @@ const Register: React.FC = () => {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* Name row */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Nombre *</label>
-                <input type="text" value={form.firstName} onChange={setField("firstName")} placeholder="María" className={inputCls("firstName")} />
-                {errors.firstName && <p className="text-destructive text-xs mt-1">{errors.firstName}</p>}
+                <input type="text" value={form.nombre} onChange={setField("nombre")} placeholder="María" className={inputCls("nombre")} />
+                {errors.nombre && <p className="text-destructive text-xs mt-1">{errors.nombre}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">Apellidos *</label>
-                <input type="text" value={form.lastName} onChange={setField("lastName")} placeholder="García" className={inputCls("lastName")} />
-                {errors.lastName && <p className="text-destructive text-xs mt-1">{errors.lastName}</p>}
+                <input type="text" value={form.apellido} onChange={setField("apellido")} placeholder="García" className={inputCls("apellido")} />
+                {errors.apellido && <p className="text-destructive text-xs mt-1">{errors.apellido}</p>}
               </div>
             </div>
 
-            {/* Age + Username */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Edad *</label>
-                <input type="number" value={form.age} onChange={setField("age")} placeholder="25" min={13} max={120} className={inputCls("age")} />
-                {errors.age && <p className="text-destructive text-xs mt-1">{errors.age}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Usuario *</label>
-                <input type="text" value={form.username} onChange={setField("username")} placeholder="chef_maria" className={inputCls("username")} />
-                {errors.username && <p className="text-destructive text-xs mt-1">{errors.username}</p>}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Usuario *</label>
+              <input type="text" value={form.usuario} onChange={setField("usuario")} placeholder="chef_maria" className={inputCls("usuario")} />
+              {errors.usuario && <p className="text-destructive text-xs mt-1">{errors.usuario}</p>}
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Email *</label>
               <input type="email" value={form.email} onChange={setField("email")} placeholder="maria@email.com" className={inputCls("email")} />
               {errors.email && <p className="text-destructive text-xs mt-1">{errors.email}</p>}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Contraseña *</label>
               <div className="relative">
@@ -172,7 +153,6 @@ const Register: React.FC = () => {
               {errors.password && <p className="text-destructive text-xs mt-1">{errors.password}</p>}
             </div>
 
-            {/* Confirm password */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Confirmar contraseña *</label>
               <input type={showPass ? "text" : "password"} value={form.confirmPassword} onChange={setField("confirmPassword")} placeholder="Repite tu contraseña" className={inputCls("confirmPassword")} />

@@ -1,7 +1,3 @@
-// ============================================================
-// ChefZone — SearchBar Component
-// Text search with debounce for ingredient/recipe searching
-// ============================================================
 import React, { useRef } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";

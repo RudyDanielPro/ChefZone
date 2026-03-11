@@ -1,87 +1,68 @@
 // ============================================================
-// ChefZone — Recipe Service
+// ChefZone — Recetas Service (ESPAÑOL)
 // ============================================================
 import request from "./api";
-import type {
-  Recipe,
-  RecipeCardData,
-  RecipeFormPayload,
-  PaginatedResponse,
-  RecipeFilters,
-} from "@/types";
+import type { Receta, RecetaPayload, RecetaResumen, PaginatedResponse } from "@/types";
 
-/**
- * Fetch paginated recipes with optional search/category filters.
- */
-export const getRecipes = (filters: RecipeFilters = {}): Promise<PaginatedResponse<RecipeCardData>> => {
-  const params = new URLSearchParams();
-  if (filters.search) params.set("search", filters.search);
-  if (filters.categoryId) params.set("categoryId", filters.categoryId);
-  params.set("page", String(filters.page ?? 1));
-  params.set("perPage", String(filters.perPage ?? 12));
+export const obtenerRecetas = (params?: {
+  busqueda?: string;
+  categoriaId?: number;
+  pagina?: number;
+  porPagina?: number;
+}): Promise<PaginatedResponse<RecetaResumen>> => {
+  const queryParams = new URLSearchParams();
+  if (params?.busqueda) queryParams.set("busqueda", params.busqueda);
+  if (params?.categoriaId) queryParams.set("categoriaId", String(params.categoriaId));
+  if (params?.pagina) queryParams.set("pagina", String(params.pagina));
+  if (params?.porPagina) queryParams.set("porPagina", String(params.porPagina));
 
-  return request(`/recipes?${params.toString()}`);
+  return request(`/recetas?${queryParams.toString()}`);
 };
 
-/**
- * Fetch a single recipe by ID.
- */
-export const getRecipeById = (id: string): Promise<Recipe> => {
-  return request(`/recipes/${id}`);
+export const obtenerRecetaPorId = (id: number): Promise<Receta> => {
+  return request(`/recetas/${id}`);
 };
 
-/**
- * Get related recipes by recipe ID.
- */
-export const getRelatedRecipes = (id: string): Promise<RecipeCardData[]> => {
-  return request(`/recipes/${id}/related`);
-};
-
-/**
- * Create a new recipe (auth required).
- */
-export const createRecipe = (payload: RecipeFormPayload): Promise<Recipe> => {
-  return request("/recipes", {
+export const crearReceta = (payload: RecetaPayload): Promise<Receta> => {
+  return request("/recetas", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 };
 
-/**
- * Update an existing recipe (auth required).
- */
-export const updateRecipe = (id: string, payload: RecipeFormPayload): Promise<Recipe> => {
-  return request(`/recipes/${id}`, {
+export const actualizarReceta = (id: number, payload: RecetaPayload): Promise<Receta> => {
+  return request(`/recetas/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 };
 
-/**
- * Delete a recipe (auth required).
- */
-export const deleteRecipe = (id: string): Promise<void> => {
-  return request(`/recipes/${id}`, { method: "DELETE" });
+export const eliminarReceta = (id: number): Promise<void> => {
+  return request(`/recetas/${id}`, { method: "DELETE" });
 };
 
-/**
- * Toggle like on a recipe (auth required).
- * Returns updated like count and new isLiked state.
- */
-export const toggleLike = (id: string): Promise<{ likesCount: number; isLiked: boolean }> => {
-  return request(`/recipes/${id}/like`, { method: "POST" });
+
+export const darLike = (id: number): Promise<{ liked: boolean; cantidadLikes: number }> => {
+  return request(`/recetas/${id}/like`, {
+    method: "POST",
+  });
 };
 
-/**
- * Get recipes authored by a specific user.
- */
-export const getUserRecipes = (userId: string): Promise<RecipeCardData[]> => {
-  return request(`/users/${userId}/recipes`);
+export const obtenerRecetasDeUsuario = (usuarioId: number): Promise<RecetaResumen[]> => {
+  return request(`/usuarios/${usuarioId}/recetas`);
 };
 
-/**
- * Get recipes liked by the current authenticated user.
- */
-export const getFavoriteRecipes = (): Promise<RecipeCardData[]> => {
-  return request("/users/me/favorites");
+export const obtenerRecetasRelacionadas = (id: number): Promise<RecetaResumen[]> => {
+  return request(`/recetas/${id}`);
+};
+
+export const subirImagenReceta = (recetaId: number, file: File): Promise<Receta> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return request(`/recetas/${recetaId}/foto`, {
+    method: "POST",
+    body: formData,
+    headers: {}
+  });
 };
