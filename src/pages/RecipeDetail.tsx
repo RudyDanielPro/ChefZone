@@ -201,20 +201,6 @@ const RecipeDetail: React.FC = () => {
                 {recipe.usuario.nombre} {recipe.usuario.apellido}
               </span>
             </Link>
-
-            {recipe.tiempoPreparacion && (
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4" />
-                {recipe.tiempoPreparacion} minutos
-              </div>
-            )}
-
-            {recipe.porciones && (
-              <div className="flex items-center gap-1.5">
-                <Users className="w-4 h-4" />
-                {recipe.porciones} porciones
-              </div>
-            )}
           </div>
         </div>
 

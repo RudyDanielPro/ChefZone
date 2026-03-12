@@ -115,16 +115,6 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onLikeUpdate, className
             {recipe.categoriaNombre}
           </span>
         </div>
-
-        {/* Badge de Tiempo */}
-        {recipe.tiempoPreparacion && (
-          <div className="absolute top-3 right-3">
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-foreground/60 text-primary-foreground backdrop-blur-sm">
-              <Clock className="w-3 h-3" />
-              {recipe.tiempoPreparacion}m
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Contenido de la Tarjeta */}

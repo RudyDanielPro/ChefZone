@@ -20,8 +20,7 @@ interface FormState {
   categoriaId: number | "";
   ingredientes: string;
   instrucciones: string;
-  tiempoPreparacion: string;
-  porciones: string;
+
 }
 
 const defaultForm: FormState = {
@@ -32,8 +31,7 @@ const defaultForm: FormState = {
   categoriaId: "",
   ingredientes: "",
   instrucciones: "",
-  tiempoPreparacion: "",
-  porciones: "",
+ 
 };
 
 interface RecipeFormPageProps {
@@ -70,8 +68,6 @@ const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ modo }) => {
           categoriaId: receta.categoria.id,
           ingredientes: receta.ingredientes,
           instrucciones: receta.instrucciones,
-          tiempoPreparacion: receta.tiempoPreparacion ? String(receta.tiempoPreparacion) : "",
-          porciones: receta.porciones ? String(receta.porciones) : "",
         });
       } catch {
         toast.error("No se pudo cargar la receta");
@@ -208,7 +204,7 @@ const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ modo }) => {
                 <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} rows={3} placeholder="Describe brevemente tu receta..." className={`${inputCls()} resize-none`} />
               </div>
 
-              {/* Categoría + tiempo + porciones */}
+              
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-3 sm:col-span-1">
                   <label className="block text-sm font-medium text-foreground mb-1.5">Categoría *</label>
@@ -217,14 +213,6 @@ const RecipeFormPage: React.FC<RecipeFormPageProps> = ({ modo }) => {
                     {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                   </select>
                   {errores.categoriaId && <p className="text-destructive text-xs mt-1">{errores.categoriaId}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Tiempo (min)</label>
-                  <input type="number" min={1} value={form.tiempoPreparacion} onChange={e => setForm(f => ({ ...f, tiempoPreparacion: e.target.value }))} placeholder="30" className={inputCls()} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Porciones</label>
-                  <input type="number" min={1} value={form.porciones} onChange={e => setForm(f => ({ ...f, porciones: e.target.value }))} placeholder="4" className={inputCls()} />
                 </div>
               </div>
 

@@ -66,8 +66,6 @@ export interface Receta {
   imagenUrl?: string;          // URL plana de Cloudinary
   cantidadLikes: number;       // Match con el backend
   likedByCurrentUser: boolean; // Match con el backend (antes isLiked)
-  tiempoPreparacion?: number;
-  porciones?: number;
 }
 
 export interface RecetaResumen {
@@ -80,7 +78,6 @@ export interface RecetaResumen {
   autorFoto?: string;
   cantidadLikes: number;       // Match con RecipeSummaryResponse
   likedByCurrentUser: boolean; // Match con RecipeSummaryResponse
-  tiempoPreparacion?: number;
 }
 
 export interface RecetaPayload {
